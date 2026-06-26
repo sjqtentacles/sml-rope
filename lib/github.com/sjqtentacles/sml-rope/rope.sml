@@ -130,4 +130,105 @@ struct
     in
       toString mid
     end
+
+  fun concatAll [] = empty
+    | concatAll [r] = r
+    | concatAll (r :: rs) = concat r (concatAll rs)
+
+  fun appendString r s = concat r (fromString s)
+
+  (* --- editing, built on split/concat (which rebalances as it goes) --- *)
+
+  fun insert r i s =
+    let
+      val n = size r
+      val () = if i < 0 orelse i > n then raise Subscript else ()
+      val (l, rr) = split r i
+    in
+      concat (concat l (fromString s)) rr
+    end
+
+  fun delete r (start, len) =
+    let
+      val n = size r
+      val () = if start < 0 orelse len < 0 orelse start + len > n
+               then raise Subscript else ()
+      val (l, rest) = split r start
+      val (_, rr) = split rest len
+    in
+      concat l rr
+    end
+
+  fun replace r (start, len) s =
+    let
+      val n = size r
+      val () = if start < 0 orelse len < 0 orelse start + len > n
+               then raise Subscript else ()
+      val (l, rest) = split r start
+      val (_, rr) = split rest len
+    in
+      concat (concat l (fromString s)) rr
+    end
+
+  (* --- iteration / transformation --- *)
+
+  fun app f r =
+    let
+      fun go (Leaf s) = CharVector.app f s
+        | go (Node {left, right, ...}) = (go left; go right)
+    in go r end
+
+  fun foldl f acc0 r =
+    let
+      fun go (Leaf s) acc = CharVector.foldl f acc s
+        | go (Node {left, right, ...}) acc = go right (go left acc)
+    in go r acc0 end
+
+  fun foldr f acc0 r =
+    let
+      fun go (Leaf s) acc = CharVector.foldr f acc s
+        | go (Node {left, right, ...}) acc = go left (go right acc)
+    in go r acc0 end
+
+  fun map f r =
+    let
+      fun go (Leaf s) = Leaf (CharVector.map f s)
+        | go (Node {left, right, size, depth}) =
+            Node {left = go left, right = go right, size = size, depth = depth}
+    in go r end
+
+  (* --- line helpers --- *)
+
+  (* Count newline-separated lines: empty rope = 0 lines; otherwise one more
+     line than the number of '\n's, except a single trailing '\n' does not
+     create an empty final line. *)
+  fun lineCount r =
+    let
+      val n = size r
+    in
+      if n = 0 then 0
+      else
+        let
+          val nl = foldl (fn (c, acc) => if c = #"\n" then acc + 1 else acc) 0 r
+          val endsNl = sub r (n - 1) = #"\n"
+        in
+          if endsNl then nl else nl + 1
+        end
+    end
+
+  fun lineAt r i =
+    let
+      val () = if i < 0 then raise Subscript else ()
+      val s = toString r
+      (* split on '\n'; drop a single trailing empty field caused by a final
+         newline so line indices match lineCount *)
+      val parts = String.fields (fn c => c = #"\n") s
+      val parts' =
+        case List.rev parts of
+            "" :: rest => List.rev rest   (* trailing newline -> drop empty *)
+          | _ => parts
+    in
+      if i >= List.length parts' then raise Subscript
+      else List.nth (parts', i)
+    end
 end
