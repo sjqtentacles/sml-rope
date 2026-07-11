@@ -65,6 +65,30 @@ val () = print (Int.toString (size big) ^ " chars, depth "
 | `lineCount`, `lineAt` | Newline-separated line count and 0-indexed line access. |
 | `balance`, `depth` | Explicit Fibonacci rebalance and current tree depth. |
 
+## Example
+
+`make example` builds and runs [`examples/demo.sml`](examples/demo.sml), which
+builds a rope from two strings and exercises indexing, splitting, editing
+(`insert`/`delete`/`replace`), `map`/`foldl`, line access, and rebalancing
+(output is byte-identical under MLton and Poly/ML):
+
+```
+size            = 44
+toString        = "The quick brown fox jumps over the lazy dog."
+sub 4           = 'q'
+sub' (4,5)      = "quick"
+split @20       = "The quick brown fox " / "jumps over the lazy dog."
+replace(4,6)    = "The slow, brown fox jumps over the lazy dog."
+insert@0        = ">> The slow, brown fox jumps over the lazy dog."
+delete(0,3)     = "The slow, brown fox jumps over the lazy dog."
+map toUpper     = "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG."
+foldl spaces    = 8
+lineCount       = 3
+lineAt 0,1,2    = "alpha", "beta", "gamma"
+concatAll depth = 5
+balance depth   = 4
+```
+
 ## Scope and limitations
 
 - The structure is **persistent** (immutable): every edit returns a new rope and
