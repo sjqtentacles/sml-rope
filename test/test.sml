@@ -240,6 +240,80 @@ struct
       val () = Harness.checkBool "oracle: rope tracks string over 400 edits"
                  (true, !oracleOk)
       val () = Harness.checkBool "oracle: depth stays bounded" (true, !depthOk)
+
+      (* ---------------------------------------------------------------- *)
+      val () = Harness.section "properties (sml-check, seed 0wx1)"
+      val seed : Check.seed = 0wx1
+      (* Keep generated strings restricted to a small alphabet without
+         newlines so lengths/indices stay simple to reason about. *)
+      val genChar = Check.charRange (#"a", #"z")
+      val genStr = Check.stringOf genChar
+      fun showStr s = "\"" ^ s ^ "\""
+      fun showPair (a, b) = showStr a ^ " / " ^ showStr b
+
+      (* fromString/toString round-trips for any string. *)
+      val () =
+        Harness.check "prop: fromString/toString round-trips"
+          (case Check.quickCheck
+                  (Check.forAll genStr showStr
+                     (fn s => toString (fromString s) = s)) of
+               Check.Passed _ => true
+             | Check.Failed _ => false)
+
+      (* concat matches plain string concatenation. *)
+      val () =
+        Harness.check "prop: toString (concat a b) = toString a ^ toString b"
+          (case Check.quickCheck
+                  (Check.forAll (Check.tuple2 (genStr, genStr)) showPair
+                     (fn (a, b) =>
+                        toString (concat (fromString a) (fromString b)) = a ^ b)) of
+               Check.Passed _ => true
+             | Check.Failed _ => false)
+
+      (* size always equals String.size of toString. *)
+      val () =
+        Harness.check "prop: size = String.size o toString"
+          (case Check.quickCheck
+                  (Check.forAll genStr showStr
+                     (fn s => size (fromString s) = String.size s)) of
+               Check.Passed _ => true
+             | Check.Failed _ => false)
+
+      (* split at any valid index, then re-concatenating the halves
+         reproduces the original string (and matches String.substring). *)
+      val () =
+        Harness.check "prop: split at i then concat halves = original"
+          (case Check.quickCheck
+                  (Check.forAll
+                     (Check.bind genStr (fn s =>
+                        Check.map (fn i => (s, i))
+                          (Check.choose (0, String.size s))))
+                     (fn (s, i) => showStr s ^ " i=" ^ Int.toString i)
+                     (fn (s, i) =>
+                        let val (l, r) = split (fromString s) i
+                        in toString l = String.substring (s, 0, i)
+                           andalso toString r = String.substring (s, i, String.size s - i)
+                           andalso toString (concat l r) = s
+                        end)) of
+               Check.Passed _ => true
+             | Check.Failed _ => false)
+
+      (* insert then delete of the same span restores the original string. *)
+      val () =
+        Harness.check "prop: insert then delete is the identity"
+          (case Check.quickCheck
+                  (Check.forAll
+                     (Check.bind genStr (fn s =>
+                        Check.bind (Check.choose (0, String.size s)) (fn i =>
+                          Check.map (fn ins => (s, i, ins)) genStr)))
+                     (fn (s, i, ins) => showStr s ^ " i=" ^ Int.toString i ^ " ins=" ^ showStr ins)
+                     (fn (s, i, ins) =>
+                        let
+                          val r = insert (fromString s) i ins
+                          val r' = delete r (i, String.size ins)
+                        in toString r' = s end)) of
+               Check.Passed _ => true
+             | Check.Failed _ => false)
     in
       Harness.run ()
     end
