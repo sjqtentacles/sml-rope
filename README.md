@@ -1,5 +1,7 @@
 # sml-rope
 
+[![CI](https://github.com/sjqtentacles/sml-rope/actions/workflows/ci.yml/badge.svg)](https://github.com/sjqtentacles/sml-rope/actions/workflows/ci.yml)
+
 Persistent rope data structure with Fibonacci rebalancing in pure Standard ML
 
 ## Installation
